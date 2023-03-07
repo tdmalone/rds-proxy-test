@@ -9,29 +9,81 @@ Parameters:
     Description: A prefix or namespace that can be used for some resources created or accessed by this template.
     Type: String
 
-  DbAdminUser:
-    Description: Name of the DB admin user.
+  DatabaseAdminUsername:
+    Description: Name of the database admin user.
     Type: String
     Default: admin
 
-  DbProxyUser:
-    Description: Name of the DB proxy user.
+  DatabaseProxyUsername:
+    Description: Name of the database proxy user.
     Type: String
     Default: proxy
 
 Resources:
 
+  ############################
+  # DB v2 Serverless Cluster #
+  ############################
+
+  # @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html
+
+  DatabaseCluster:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Type: AWS::RDS::DBCluster
+    Properties:
+      BackupRetentionPeriod: 35
+      DBClusterIdentifier: !Sub ${NamePrefix}-database-cluster
+      DBClusterParameterGroupName: !Ref DatabaseClusterParameterGroup
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      EnableCloudwatchLogsExports:
+        - audit
+        - error
+        - general
+        - slowquery
+      EnableIAMDatabaseAuthentication: true
+      Engine: aurora-mysql
+      EngineVersion: 8.0.mysql_aurora.3.02.0
+      KmsKeyId: !GetAtt DatabaseKmsKey.Arn
+      MasterUsername: !Sub "{{resolve:secretsmanager:${DatabaseAdminCredentials}:SecretString:username}}"
+      MasterUserPassword: !Sub "{{resolve:secretsmanager:${DatabaseAdminCredentials}:SecretString:password}}"
+      ServerlessV2ScalingConfiguration:
+        MinCapacity: 2
+        MaxCapacity: 5
+      StorageEncrypted: true
+      VpcSecurityGroupIds:
+        - !Ref DatabaseSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub ${NamePrefix}-database-cluster
+
+  # @see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.html
+
+  DatabaseInstance:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBClusterIdentifier: !Ref DatabaseCluster
+      CACertificateIdentifier: rds-ca-2019
+      DBInstanceClass: db.serverless
+      DBParameterGroupName: !Ref DatabaseInstanceParameterGroup
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      Engine: aurora-mysql
+      EngineVersion: 8.0.mysql_aurora.3.02.0
+      Tags:
+        - Key: Name
+          Value: !Sub ${NamePrefix}-database-instance
+
   ###################
   # Security Groups #
   ###################
 
-  RDSAuroraDbSecurityGroup:
+  DatabaseSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow TCP to Aurora RDS 3306
-      GroupName: !Sub ${NamePrefix}-RDSAuroraTcpMySQLPrivateRestricted
-      VpcId:
-        Fn::ImportValue: !Sub ${NamePrefix}-vpc-id
+      GroupName: !Sub ${NamePrefix}-DatabaseSecurityGroup
+      GroupDescription: Database security group
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 3306
@@ -43,190 +95,140 @@ Resources:
           ToPort: 3306
           CidrIp:
             Fn::ImportValue: !Sub ${NamePrefix}-private-subnet-cidr
-      SecurityGroupEgress: []
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 127.0.0.1/32  # Local loopback; no-op rule to replace the default 0.0.0.0/0.
+      VpcId:
+        Fn::ImportValue: !Sub ${NamePrefix}-vpc-id
       Tags:
         - Key: Name
-          Value: !Sub ${NamePrefix}-DbSG
+          Value: !Sub ${NamePrefix}-DatabaseSecurityGroup
 
-  ###################
-  # DB Subnet Group #
-  ###################
+  #################
+  # Subnet Groups #
+  #################
 
-  RDSAuroraServerlessV2DBSubnetGroup:
+  DatabaseSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
-      DBSubnetGroupDescription: !Sub ${NamePrefix} Aurora Serverless v2 DB Subnet Group
-      DBSubnetGroupName: !Sub ${NamePrefix}-db-aurora-serverless-v2-subnet-group
-      SubnetIds:
-        Fn::Split:
-          - ","
-          - Fn::ImportValue: !Sub ${NamePrefix}-restricted-subnet-list
+      DBSubnetGroupName: !Sub ${NamePrefix}-database-subnet-group
+      DBSubnetGroupDescription: Database subnet group
+      SubnetIds: !Split
+        - ","
+        - Fn::ImportValue: !Sub "${NamePrefix}-restricted-subnet-list"
 
-  ##########
-  # DB CMK #
-  ##########
+  ############
+  # KMS Keys #
+  ############
 
-  DBCMK:
+  DatabaseKmsKey:
     Type: AWS::KMS::Key
     Properties:
       Description: !Sub CMK for ${NamePrefix} database
       EnableKeyRotation: true
       KeyPolicy:
-        Version: "2012-10-17"
-        Id: "root"
+        Version: 2012-10-17
+        Id: root
         Statement:
-          - Sid: "Delegate to IAM"
-            Effect: "Allow"
+          - Sid: Delegate to IAM
+            Effect: Allow
             Principal:
               AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:root
-            Action: "kms:*"
+            Action: kms:*
             Resource: "*"
 
-  DBCMKAlias:
+  DatabaseKmsKeyAlias:
     Type: AWS::KMS::Alias
     Properties:
-      AliasName: !Sub alias/${NamePrefix}-db-cmk
-      TargetKeyId: !Ref DBCMK
+      AliasName: !Sub alias/${NamePrefix}-database-kms-key
+      TargetKeyId: !Ref DatabaseKmsKey
 
-  ############
-  # DB Creds #
-  ############
+  ###############
+  # Credentials #
+  ###############
 
   # @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-secret.html
 
   # Admin
-  DBAdminCredentials:
+
+  DatabaseAdminCredentials:
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Type: AWS::SecretsManager::Secret
     Properties:
       Description: !Sub Admin credentials for the ${NamePrefix} database.
       GenerateSecretString:
-        SecretStringTemplate: !Sub '{ "username": "${DbAdminUser}" }'
+        SecretStringTemplate: !Sub '{ "username": "${DatabaseAdminUsername}" }'
         ExcludePunctuation: true
         ExcludeCharacters: '''"@/\'
         GenerateStringKey: "password"
         PasswordLength: 30
-      Name: !Sub ${NamePrefix}/rds/${DbAdminUser}
+      Name: !Sub ${NamePrefix}/rds/${DatabaseAdminUsername}
 
-  DBAdminCredentialsAttachment:
+  DatabaseAdminCredentialsAttachment:
     Type: AWS::SecretsManager::SecretTargetAttachment
     Properties:
-      SecretId: !Ref DBAdminCredentials
-      TargetId: !Ref RdsAuroraServerlessV2Cluster
+      SecretId: !Ref DatabaseAdminCredentials
+      TargetId: !Ref DatabaseCluster
       TargetType: AWS::RDS::DBCluster
 
-  # RDS Proxy
-  DBApiCredentials:
+  # Proxy
+
+  DatabaseProxyCredentials:
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Type: AWS::SecretsManager::Secret
     Properties:
       Description: !Sub RDS Proxy credentials for the ${NamePrefix} database.
       GenerateSecretString:
-        SecretStringTemplate: !Sub '{ "username": "${DbProxyUser}" }'
+        SecretStringTemplate: !Sub '{ "username": "${DatabaseProxyUsername}" }'
         ExcludePunctuation: true
         ExcludeCharacters: '''"@/\'
         GenerateStringKey: "password"
         PasswordLength: 30
-      Name: !Sub ${NamePrefix}/rds/${DbProxyUser}
+      Name: !Sub ${NamePrefix}/rds/${DatabaseProxyUsername}
 
-  DBApiCredentialsAttachment:
+  DatabaseProxyCredentialsAttachment:
     Type: AWS::SecretsManager::SecretTargetAttachment
     Properties:
-      SecretId: !Ref DBApiCredentials
-      TargetId: !Ref RdsAuroraServerlessV2Cluster
+      SecretId: !Ref DatabaseProxyCredentials
+      TargetId: !Ref DatabaseCluster
       TargetType: AWS::RDS::DBCluster
 
-  ###################
-  # DB Param Groups #
-  ###################
+  ####################
+  # Parameter Groups #
+  ####################
 
-  RdsAuroraServerlessV2ClusterPG:
+  DatabaseClusterParameterGroup:
     Type: AWS::RDS::DBClusterParameterGroup
     Properties:
-      Description: !Sub Cluster Parameter Group for ${NamePrefix} DB
+      Description: !Sub Database cluster parameter group for ${NamePrefix}
       Family: aurora-mysql8.0
       Parameters:
         time_zone: UTC
 
-  RdsAuroraServerlessV2ClusterInstancePG:
+  DatabaseInstanceParameterGroup:
     Type: AWS::RDS::DBParameterGroup
     Properties:
-      Description: !Sub Instance Parameter Group for ${NamePrefix} DB
+      Description: !Sub Database instance parameter group for ${NamePrefix}
       Family: aurora-mysql8.0
       Parameters:
         explicit_defaults_for_timestamp: 1
 
-  ############################
-  # DB v2 Serverless Cluster #
-  ############################
-
-  # @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html
-
-  RdsAuroraServerlessV2Cluster:
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Delete
-    Type: AWS::RDS::DBCluster
-    Properties:
-      BackupRetentionPeriod: 35
-      DBClusterIdentifier: !Sub ${NamePrefix}-aurora-mysql-serverless-v2
-      DBSubnetGroupName: !Ref RDSAuroraServerlessV2DBSubnetGroup
-      DBClusterParameterGroupName: !Ref RdsAuroraServerlessV2ClusterPG
-      VpcSecurityGroupIds:
-        - !Ref RDSAuroraDbSecurityGroup
-      Engine: aurora-mysql
-      EngineVersion: 8.0.mysql_aurora.3.02.0
-      EnableIAMDatabaseAuthentication: true
-      EnableCloudwatchLogsExports:
-        - audit
-        - general
-        - error
-        - slowquery
-      StorageEncrypted: true
-      KmsKeyId: !GetAtt DBCMK.Arn
-      MasterUsername: !Sub "{{resolve:secretsmanager:${DBAdminCredentials}:SecretString:username}}"
-      MasterUserPassword: !Sub "{{resolve:secretsmanager:${DBAdminCredentials}:SecretString:password}}"
-      ServerlessV2ScalingConfiguration:
-        MinCapacity: 2
-        MaxCapacity: 5
-      Tags:
-        - Key: Name
-          Value: !Sub ${NamePrefix}-aurora-mysql-serverless-v2-db
-
-  # @see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.html
-
-  RdsAuroraServerlessV2DbInstance1:
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Delete
-    Type: AWS::RDS::DBInstance
-    Properties:
-      Engine: aurora-mysql
-      EngineVersion: 8.0.mysql_aurora.3.02.0
-      DBClusterIdentifier: !Ref RdsAuroraServerlessV2Cluster
-      DBInstanceClass: db.serverless
-      CACertificateIdentifier: rds-ca-2019
-      DBSubnetGroupName: !Ref RDSAuroraServerlessV2DBSubnetGroup
-      Tags:
-        - Key: Name
-          Value: !Sub ${NamePrefix}-aurora-mysql-serverless-v2-db-instance
+###########
+# Outputs #
+###########
 
 Outputs:
 
-  AuroraName:
-    Description: Aurora Name
+  DatabaseClusterName:
+    Description: Database cluster name
     Export:
-      Name: !Sub ${NamePrefix}-aurora-cluster-name
-    Value: !Ref RdsAuroraServerlessV2Cluster
+      Name: !Sub ${NamePrefix}-database-cluster-name
+    Value: !Ref DatabaseCluster
 
-  RdsAuroraServerlessV2ClusterName:
-    Description: Aurora Name
+  DatabaseProxyCredentialsArn:
+    Description: Secret ARN for database proxy credentials
     Export:
-      Name: !Sub ${NamePrefix}-aurora-serverlessv2-cluster-name
-    Value: !Ref RdsAuroraServerlessV2Cluster
-
-  DBApiCredentials:
-    Description: DB Api Creds ARN
-    Export:
-      Name: !Sub ${NamePrefix}-db-api-creds-arn
-    Value: !Ref DBApiCredentials
+      Name: !Sub ${NamePrefix}-database-proxy-credentials-arn
+    Value: !Ref DatabaseProxyCredentials

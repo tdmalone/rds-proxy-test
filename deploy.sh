@@ -71,6 +71,8 @@ main(){
     delete_stack "1-vpc"
 
     wait_while "1-vpc" "DELETE_IN_PROGRESS"
+
+    echo && echo "Standby for eventual consistency..." && sleep 5
   fi
 
   deploy_stack "1-vpc"

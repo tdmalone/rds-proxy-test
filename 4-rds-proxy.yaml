@@ -10,39 +10,69 @@ Parameters:
 
 Resources:
 
-  ###################
-  # Security Groups #
-  ###################
+  # @see https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/rds-proxy.howitworks.html#rds-proxy-connecting
+  # @see https://aws.amazon.com/blogs/compute/using-amazon-rds-proxy-with-aws-lambda/
+  # @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbproxy.html
+  DatabaseProxy:
+    Type: AWS::RDS::DBProxy
+    Properties:
+      DBProxyName: !Sub ${NamePrefix}-rds-proxy
+      EngineFamily: MYSQL
+      RoleArn: !GetAtt DatabaseProxyRole.Arn
+      Auth:
+        - Description: API user
+          AuthScheme: SECRETS
+          SecretArn:
+            Fn::ImportValue: !Sub ${NamePrefix}-database-proxy-credentials-arn
+          IAMAuth: REQUIRED
+      VpcSubnetIds: !Split
+        - ","
+        - Fn::ImportValue: !Sub ${NamePrefix}-restricted-subnet-list
+      VpcSecurityGroupIds:
+        - !Ref DatabaseProxySecurityGroup
+      RequireTLS: true
+      DebugLogging: true
 
-  RdsProxySG:
+  # @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbproxytargetgroup.html
+  ProxyTargetGroup:
+    Type: AWS::RDS::DBProxyTargetGroup
+    Properties:
+      DBProxyName: !Ref DatabaseProxy
+      TargetGroupName: default  # Must be set to default
+      DBClusterIdentifiers:
+        - Fn::ImportValue: !Sub ${NamePrefix}-database-cluster-name
+      ConnectionPoolConfigurationInfo:
+        MaxConnectionsPercent: 90
+        MaxIdleConnectionsPercent: 80
+        ConnectionBorrowTimeout: 120
+
+  DatabaseProxySecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow TCP to Aurora RDS Proxy 3306
-      GroupName: !Sub ${NamePrefix}-RdsProxySG
-      VpcId:
-        Fn::ImportValue: !Sub ${NamePrefix}-vpc-id
+      GroupName: !Sub ${NamePrefix}-DatabaseProxySecurityGroup
+      GroupDescription: RDS Proxy security group
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 3306
           ToPort: 3306
           CidrIp:
             Fn::ImportValue: !Sub ${NamePrefix}-private-subnet-cidr
-      SecurityGroupEgress: []
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 127.0.0.1/32  # Local loopback; no-op rule to replace the default 0.0.0.0/0.
+      VpcId:
+        Fn::ImportValue: !Sub ${NamePrefix}-vpc-id
       Tags:
         - Key: Name
-          Value: RdsProxySG
-
-  ############
-  # DB Proxy #
-  ############
+          Value: !Sub ${NamePrefix}-DatabaseProxySecurityGroup
 
   # @see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.IAMPolicy.html
   # @see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-proxy-setup.html#rds-proxy-connecting-iam
-  DBProxyRole:
+  DatabaseProxyRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-        Version: "2012-10-17"
+        Version: 2012-10-17
         Statement:
           - Effect: Allow
             Principal:
@@ -51,61 +81,23 @@ Resources:
       Policies:
         - PolicyName: root
           PolicyDocument:
-            Version: "2012-10-17"
+            Version: 2012-10-17
             Statement:
 
               - Sid: GetSecretValue
                 Action:
-                  - secretsmanager:GetSecretValue
-                  - secretsmanager:GetResourcePolicy
                   - secretsmanager:DescribeSecret
+                  - secretsmanager:GetResourcePolicy
+                  - secretsmanager:GetSecretValue
                   - secretsmanager:ListSecretVersionIds
                 Effect: Allow
                 Resource:
-                  - Fn::ImportValue: !Sub ${NamePrefix}-db-api-creds-arn
+                  Fn::ImportValue: !Sub ${NamePrefix}-database-proxy-credentials-arn
 
               - Sid: DecryptSecretValue
                 Action: kms:Decrypt
                 Effect: Allow
-                Resource:
-                  - !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*
+                Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*
                 Condition:
                   StringEquals:
                     kms:ViaService: !Sub secretsmanager.${AWS::Region}.amazonaws.com
-
-  # @see https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/rds-proxy.howitworks.html#rds-proxy-connecting
-  # @see https://aws.amazon.com/blogs/compute/using-amazon-rds-proxy-with-aws-lambda/
-  # @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbproxy.html
-  DBProxy:
-    Type: AWS::RDS::DBProxy
-    Properties:
-      DBProxyName: !Sub ${NamePrefix}-rds-proxy
-      EngineFamily: MYSQL
-      RoleArn: !GetAtt DBProxyRole.Arn
-      Auth:
-        - Description: API user
-          AuthScheme: SECRETS
-          SecretArn:
-            Fn::ImportValue: !Sub ${NamePrefix}-db-api-creds-arn
-          IAMAuth: REQUIRED
-      VpcSubnetIds:
-        Fn::Split:
-          - ","
-          - Fn::ImportValue: !Sub ${NamePrefix}-restricted-subnet-list
-      VpcSecurityGroupIds:
-        - !Ref RdsProxySG
-      RequireTLS: true
-      DebugLogging: true
-
-  # @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbproxytargetgroup.html
-  ProxyTargetGroup:
-    Type: AWS::RDS::DBProxyTargetGroup
-    Properties:
-      DBProxyName: !Ref DBProxy
-      TargetGroupName: default # Must be set to default
-      DBClusterIdentifiers:
-        - Fn::ImportValue: !Sub ${NamePrefix}-aurora-serverlessv2-cluster-name
-      ConnectionPoolConfigurationInfo:
-        MaxConnectionsPercent: 90
-        MaxIdleConnectionsPercent: 80
-        ConnectionBorrowTimeout: 120

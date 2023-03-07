@@ -11,17 +11,14 @@ Mappings:
       PrivateSubnet1Cidr: 172.20.0.0/19
       PrivateSubnet2Cidr: 172.20.32.0/19
       PrivateSubnet3Cidr: 172.20.64.0/19
-      PrivateSubnetReservesCidr: 172.20.96.0/19
       PublicSubnetCidr: 172.20.128.0/18
       PublicSubnet1Cidr: 172.20.128.0/20
       PublicSubnet2Cidr: 172.20.144.0/20
       PublicSubnet3Cidr: 172.20.160.0/20
-      PublicSubnetReservesCidr: 172.20.176.0/20
       RestrictedSubnetCidr: 172.20.192.0/19
       RestrictedSubnet1Cidr: 172.20.192.0/21
       RestrictedSubnet2Cidr: 172.20.200.0/21
       RestrictedSubnet3Cidr: 172.20.208.0/21
-      RestrictedSubnetReservesCidr: 172.20.216.0/21
 
 Parameters:
 
@@ -43,17 +40,14 @@ Resources:
   #######
 
   Vpc:
+    Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: !FindInMap
-        - AccountConfig
-        - !Ref AccountName
-        - VpcCidr
+      CidrBlock: !FindInMap [AccountConfig, !Ref AccountName, VpcCidr]
       EnableDnsHostnames: true
       EnableDnsSupport: true
       Tags:
         - Key: Name
           Value: !Sub ${NamePrefix}-vpc
-    Type: AWS::EC2::VPC
 
   ###########
   # Subnets #
@@ -62,15 +56,9 @@ Resources:
   RestrictedSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
-      AvailabilityZone: !Select
-        - "0"
-        - !GetAZs
-          Ref: AWS::Region
-      CidrBlock: !FindInMap
-        - AccountConfig
-        - !Ref AccountName
-        - RestrictedSubnet1Cidr
       VpcId: !Ref Vpc
+      AvailabilityZone: !Select [ 0, !GetAZs ]
+      CidrBlock: !FindInMap [AccountConfig, !Ref AccountName, RestrictedSubnet1Cidr]
       Tags:
         - Key: Name
           Value: !Sub ${NamePrefix}-restricted-subnet-1
@@ -78,15 +66,9 @@ Resources:
   RestrictedSubnet2:
     Type: AWS::EC2::Subnet
     Properties:
-      AvailabilityZone: !Select
-        - "1"
-        - !GetAZs
-          Ref: AWS::Region
-      CidrBlock: !FindInMap
-        - AccountConfig
-        - !Ref AccountName
-        - RestrictedSubnet2Cidr
       VpcId: !Ref Vpc
+      AvailabilityZone: !Select [ 1, !GetAZs ]
+      CidrBlock: !FindInMap [AccountConfig, !Ref AccountName, RestrictedSubnet2Cidr]
       Tags:
         - Key: Name
           Value: !Sub ${NamePrefix}-restricted-subnet-2
@@ -94,15 +76,9 @@ Resources:
   RestrictedSubnet3:
     Type: AWS::EC2::Subnet
     Properties:
-      AvailabilityZone: !Select
-        - "2"
-        - !GetAZs
-          Ref: AWS::Region
-      CidrBlock: !FindInMap
-        - AccountConfig
-        - !Ref AccountName
-        - RestrictedSubnet3Cidr
       VpcId: !Ref Vpc
+      AvailabilityZone: !Select [ 2, !GetAZs ]
+      CidrBlock: !FindInMap [AccountConfig, !Ref AccountName, RestrictedSubnet3Cidr]
       Tags:
         - Key: Name
           Value: !Sub ${NamePrefix}-restricted-subnet-3
@@ -110,15 +86,9 @@ Resources:
   PrivateSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
-      AvailabilityZone: !Select
-        - "0"
-        - !GetAZs
-          Ref: AWS::Region
-      CidrBlock: !FindInMap
-        - AccountConfig
-        - !Ref AccountName
-        - PrivateSubnet1Cidr
       VpcId: !Ref Vpc
+      AvailabilityZone: !Select [ 0, !GetAZs ]
+      CidrBlock: !FindInMap [AccountConfig, !Ref AccountName, PrivateSubnet1Cidr]
       Tags:
         - Key: Name
           Value: !Sub ${NamePrefix}-private-subnet-1
@@ -126,15 +96,9 @@ Resources:
   PrivateSubnet2:
     Type: AWS::EC2::Subnet
     Properties:
-      AvailabilityZone: !Select
-        - "1"
-        - !GetAZs
-          Ref: AWS::Region
-      CidrBlock: !FindInMap
-        - AccountConfig
-        - !Ref AccountName
-        - PrivateSubnet2Cidr
       VpcId: !Ref Vpc
+      AvailabilityZone: !Select [ 1, !GetAZs ]
+      CidrBlock: !FindInMap [AccountConfig, !Ref AccountName, PrivateSubnet2Cidr]
       Tags:
         - Key: Name
           Value: !Sub ${NamePrefix}-private-subnet-2
@@ -142,15 +106,9 @@ Resources:
   PrivateSubnet3:
     Type: AWS::EC2::Subnet
     Properties:
-      AvailabilityZone: !Select
-        - "2"
-        - !GetAZs
-          Ref: AWS::Region
-      CidrBlock: !FindInMap
-        - AccountConfig
-        - !Ref AccountName
-        - PrivateSubnet3Cidr
       VpcId: !Ref Vpc
+      AvailabilityZone: !Select [ 2, !GetAZs ]
+      CidrBlock: !FindInMap [AccountConfig, !Ref AccountName, PrivateSubnet3Cidr]
       Tags:
         - Key: Name
           Value: !Sub ${NamePrefix}-private-subnet-3
@@ -158,15 +116,9 @@ Resources:
   PublicSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
-      AvailabilityZone: !Select
-        - "0"
-        - !GetAZs
-          Ref: AWS::Region
-      CidrBlock: !FindInMap
-        - AccountConfig
-        - !Ref AccountName
-        - PublicSubnet1Cidr
       VpcId: !Ref Vpc
+      AvailabilityZone: !Select [ 0, !GetAZs ]
+      CidrBlock: !FindInMap [AccountConfig, !Ref AccountName, PublicSubnet1Cidr]
       Tags:
         - Key: Name
           Value: !Sub ${NamePrefix}-public-subnet-1
@@ -174,15 +126,9 @@ Resources:
   PublicSubnet2:
     Type: AWS::EC2::Subnet
     Properties:
-      AvailabilityZone: !Select
-        - "1"
-        - !GetAZs
-          Ref: AWS::Region
-      CidrBlock: !FindInMap
-        - AccountConfig
-        - !Ref AccountName
-        - PublicSubnet2Cidr
       VpcId: !Ref Vpc
+      AvailabilityZone: !Select [ 1, !GetAZs ]
+      CidrBlock: !FindInMap [AccountConfig, !Ref AccountName, PublicSubnet2Cidr]
       Tags:
         - Key: Name
           Value: !Sub ${NamePrefix}-public-subnet-2
@@ -190,14 +136,8 @@ Resources:
   PublicSubnet3:
     Type: AWS::EC2::Subnet
     Properties:
-      AvailabilityZone: !Select
-        - "2"
-        - !GetAZs
-          Ref: AWS::Region
-      CidrBlock: !FindInMap
-        - AccountConfig
-        - !Ref AccountName
-        - PublicSubnet3Cidr
+      AvailabilityZone: !Select [ 2, !GetAZs ]
+      CidrBlock: !FindInMap [AccountConfig, !Ref AccountName, PublicSubnet3Cidr]
       VpcId: !Ref Vpc
       Tags:
         - Key: Name
@@ -207,7 +147,7 @@ Resources:
   # VpcFlowLogs #
   ###############
 
-  VpcFlowLogsGroup:
+  VpcFlowLogsLogGroup:
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Type: AWS::Logs::LogGroup
@@ -219,7 +159,7 @@ Resources:
     Type: AWS::EC2::FlowLog
     Properties:
       DeliverLogsPermissionArn: !GetAtt [VpcFlowLogsRole, Arn]
-      LogGroupName: !Ref VpcFlowLogsGroup
+      LogGroupName: !Ref VpcFlowLogsLogGroup
       ResourceId: !Ref Vpc
       ResourceType: VPC
       TrafficType: ALL
@@ -237,7 +177,7 @@ Resources:
       Policies:
         - PolicyName: root
           PolicyDocument:
-            Version: "2012-10-17"
+            Version: 2012-10-17
             Statement:
               - Effect: Allow
                 Action:
@@ -256,7 +196,7 @@ Resources:
     Type: AWS::EC2::RouteTable
     Properties:
       Tags:
-        - Key: "Name"
+        - Key: Name
           Value: !Sub ${NamePrefix}-restricted-route-table
       VpcId: !Ref Vpc
 
@@ -264,7 +204,7 @@ Resources:
     Type: AWS::EC2::RouteTable
     Properties:
       Tags:
-        - Key: "Name"
+        - Key: Name
           Value: !Sub ${NamePrefix}-private-route-table
       VpcId: !Ref Vpc
 
@@ -272,11 +212,11 @@ Resources:
     Type: AWS::EC2::RouteTable
     Properties:
       Tags:
-        - Key: "Name"
+        - Key: Name
           Value: !Sub ${NamePrefix}-public-route-table
       VpcId: !Ref Vpc
 
-  ####################################
+  ###################################
   # Internet Gateway / Routes / NAT #
   ###################################
 
@@ -287,7 +227,7 @@ Resources:
         - Key: Name
           Value: !Sub ${NamePrefix}-igw
 
-  IGWAttachment:
+  IgwAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
       InternetGatewayId: !Ref InternetGateway
@@ -300,184 +240,87 @@ Resources:
       GatewayId: !Ref InternetGateway
       RouteTableId: !Ref PublicRouteTable
 
-  NATGatewayEIP1:
+  NatGatewayEip:
     Type: AWS::EC2::EIP
     Properties:
       Domain: vpc
       Tags:
         - Key: Name
-          Value: !Sub ${NamePrefix}-nat-gateway-eip-1
+          Value: !Sub ${NamePrefix}-nat-gateway-eip
 
-  NATGateway1:
+  NatGateway:
     Type: AWS::EC2::NatGateway
     Properties:
-      AllocationId: !GetAtt
-        - NATGatewayEIP1
-        - AllocationId
+      AllocationId: !GetAtt NatGatewayEip.AllocationId
       SubnetId: !Ref PublicSubnet1
       Tags:
         - Key: Name
-          Value: !Sub ${NamePrefix}-nat-gateway-1
+          Value: !Sub ${NamePrefix}-nat-gateway
 
-  PrivateNATRoute1:
+  PrivateNatRoute:
     Type: AWS::EC2::Route
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NATGateway1
+      NatGatewayId: !Ref NatGateway
       RouteTableId: !Ref PrivateRouteTable
 
   ######################
   # Route Associations #
   ######################
 
-  RestrictedRouteTableAssocciation1:
+  RestrictedRouteTableAssociation1:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref RestrictedRouteTable
       SubnetId: !Ref RestrictedSubnet1
 
-  RestrictedRouteTableAssocciation2:
+  RestrictedRouteTableAssociation2:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref RestrictedRouteTable
       SubnetId: !Ref RestrictedSubnet2
 
-  RestrictedRouteTableAssocciation3:
+  RestrictedRouteTableAssociation3:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref RestrictedRouteTable
       SubnetId: !Ref RestrictedSubnet3
 
-  PrivateRouteTableAssocciation1:
+  PrivateRouteTableAssociation1:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PrivateRouteTable
       SubnetId: !Ref PrivateSubnet1
 
-  PrivateRouteTableAssocciation2:
+  PrivateRouteTableAssociation2:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PrivateRouteTable
       SubnetId: !Ref PrivateSubnet2
 
-  PrivateRouteTableAssocciation3:
+  PrivateRouteTableAssociation3:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PrivateRouteTable
       SubnetId: !Ref PrivateSubnet3
 
-  PublicRouteTableAssocciation1:
+  PublicRouteTableAssociation1:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref PublicSubnet1
 
-  PublicRouteTableAssocciation2:
+  PublicRouteTableAssociation2:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref PublicSubnet2
 
-  PublicRouteTableAssocciation3:
+  PublicRouteTableAssociation3:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref PublicSubnet3
-
-  ################
-  # Network ACLs #
-  ################
-
-  RestrictedSubnetAcl:
-    Properties:
-      Tags:
-        - Key: Name
-          Value: !Sub ${NamePrefix}-restricted-subnet-acl
-      VpcId: !Ref Vpc
-    Type: AWS::EC2::NetworkAcl
-
-  PrivateSubnetAcl:
-    Properties:
-      Tags:
-        - Key: Name
-          Value: !Sub ${NamePrefix}-private-subnet-acl
-      VpcId: !Ref Vpc
-    Type: AWS::EC2::NetworkAcl
-
-  PublicSubnetAcl:
-    Properties:
-      Tags:
-        - Key: Name
-          Value: !Sub ${NamePrefix}-public-subnet-acl
-      VpcId: !Ref Vpc
-    Type: AWS::EC2::NetworkAcl
-
-  ######################
-  # NACLs Associations #
-  ######################
-
-  RestrictedSubnet1AclAssociation:
-    Properties:
-      SubnetId: !Ref RestrictedSubnet1
-      NetworkAclId:
-        Ref: RestrictedSubnetAcl
-    Type: AWS::EC2::SubnetNetworkAclAssociation
-
-  RestrictedSubnet2AclAssociation:
-    Properties:
-      SubnetId: !Ref RestrictedSubnet2
-      NetworkAclId:
-        Ref: RestrictedSubnetAcl
-    Type: AWS::EC2::SubnetNetworkAclAssociation
-
-  RestrictedSubnet3AclAssociation:
-    Properties:
-      SubnetId: !Ref RestrictedSubnet3
-      NetworkAclId:
-        Ref: RestrictedSubnetAcl
-    Type: AWS::EC2::SubnetNetworkAclAssociation
-
-  PrivateSubnet1AclAssociation:
-    Properties:
-      SubnetId: !Ref PrivateSubnet1
-      NetworkAclId:
-        Ref: PrivateSubnetAcl
-    Type: AWS::EC2::SubnetNetworkAclAssociation
-
-  PrivateSubnet2AclAssociation:
-    Properties:
-      SubnetId: !Ref PrivateSubnet2
-      NetworkAclId:
-        Ref: PrivateSubnetAcl
-    Type: AWS::EC2::SubnetNetworkAclAssociation
-
-  PrivateSubnet3AclAssociation:
-    Properties:
-      SubnetId: !Ref PrivateSubnet3
-      NetworkAclId:
-        Ref: PrivateSubnetAcl
-    Type: AWS::EC2::SubnetNetworkAclAssociation
-
-  PublicSubnet1AclAssociation:
-    Properties:
-      SubnetId: !Ref PublicSubnet1
-      NetworkAclId:
-        Ref: PublicSubnetAcl
-    Type: AWS::EC2::SubnetNetworkAclAssociation
-
-  PublicSubnet2AclAssociation:
-    Properties:
-      SubnetId: !Ref PublicSubnet2
-      NetworkAclId:
-        Ref: PublicSubnetAcl
-    Type: AWS::EC2::SubnetNetworkAclAssociation
-
-  PublicSubnet3AclAssociation:
-    Properties:
-      SubnetId: !Ref PublicSubnet3
-      NetworkAclId:
-        Ref: PublicSubnetAcl
-    Type: AWS::EC2::SubnetNetworkAclAssociation
 
 ###########
 # Outputs #
@@ -486,13 +329,13 @@ Resources:
 Outputs:
 
   VpcId:
-    Description: Vpc Id
+    Description: VPC ID
     Export:
       Name: !Sub ${NamePrefix}-vpc-id
     Value: !Ref Vpc
 
   RestrictedSubnets:
-    Description: List of Restricted Subnet
+    Description: List of restricted subnet IDs
     Export:
       Name: !Sub ${NamePrefix}-restricted-subnet-list
     Value: !Join
@@ -502,7 +345,7 @@ Outputs:
         - Ref: RestrictedSubnet3
 
   PrivateSubnets:
-    Description: List of Private Subnet
+    Description: List of private subnet IDs
     Export:
       Name: !Sub ${NamePrefix}-private-subnet-list
     Value: !Join
@@ -512,7 +355,7 @@ Outputs:
         - Ref: PrivateSubnet3
 
   PublicSubnets:
-    Description: List of Public Subnet
+    Description: List of public subnet IDs
     Export:
       Name: !Sub ${NamePrefix}-public-subnet-list
     Value: !Join
@@ -521,20 +364,20 @@ Outputs:
         - Ref: PublicSubnet2
         - Ref: PublicSubnet3
 
+  RestrictedSubnetCidr:
+    Description: Restricted subnets CIDR range
+    Export:
+      Name: !Sub ${NamePrefix}-restricted-subnet-cidr
+    Value: !FindInMap [AccountConfig, !Ref AccountName, RestrictedSubnetCidr]
+
   PrivateSubnetCidr:
-    Description: Private Subnet Cidr
+    Description: Private subnets CIDR range
     Export:
       Name: !Sub ${NamePrefix}-private-subnet-cidr
     Value: !FindInMap [AccountConfig, !Ref AccountName, PrivateSubnetCidr]
 
   PublicSubnetCidr:
-    Description: Private Subnet Cidr
+    Description: Public subnets CIDR range
     Export:
       Name: !Sub ${NamePrefix}-public-subnet-cidr
     Value: !FindInMap [AccountConfig, !Ref AccountName, PublicSubnetCidr]
-
-  RestrictedSubnetCidr:
-    Description: Restricted Subnet Cidr
-    Export:
-      Name: !Sub ${NamePrefix}-restricted-subnet-cidr
-    Value: !FindInMap [AccountConfig, !Ref AccountName, RestrictedSubnetCidr]

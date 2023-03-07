@@ -4,24 +4,11 @@ AWSTemplateFormatVersion: 2010-09-09
 
 Mappings:
 
-  test:
+  RegionConfig:
     ap-southeast-2:
-      AZ1: ap-southeast-2a
-      AZ2: ap-southeast-2b
-      AZ3: ap-southeast-2c
       JumpBoxAmi: ami-0692dea0a2f8a1b35  # Amazon Linux 2 5.10
-      JumpBoxInstanceType: t3.micro
-      JumpBoxAsgDesiredCapacity: 1
-      JumpBoxAsgMaximumSize: 1
-      JumpBoxAsgMinimumSize: 1
-      JumpBoxVolumeSize: 20
-      JumpBoxVolumeType: gp2
 
 Parameters:
-
-  Environment:
-    Type: String
-    Default: test
 
   NamePrefix:
     Description: A prefix or namespace that can be used for some resources created or accessed by this template.
@@ -39,38 +26,33 @@ Resources:
             Ebs:
               DeleteOnTermination: true
               Encrypted: true
-              VolumeSize: !FindInMap [!Ref Environment, !Ref AWS::Region, "JumpBoxVolumeSize"]
-              VolumeType: !FindInMap [!Ref Environment, !Ref AWS::Region, "JumpBoxVolumeType"]
+              VolumeSize: 20
+              VolumeType: gp2
         IamInstanceProfile:
           Name: !Ref JumpBoxInstanceProfile
-        ImageId: !FindInMap [!Ref Environment, !Ref AWS::Region, "JumpBoxAmi"]
-        InstanceType: !FindInMap [!Ref Environment, !Ref AWS::Region, "JumpBoxInstanceType"]
+        ImageId: !FindInMap [RegionConfig, !Ref AWS::Region, JumpBoxAmi]
+        InstanceType: t3.micro
         SecurityGroupIds:
           - !Ref JumpBoxSecurityGroup
         TagSpecifications:
           - ResourceType: instance
             Tags:
               - Key: Name
-                Value: JumpBox
-              - Key: NamePrefix
-                Value: !Ref NamePrefix
+                Value: !Sub ${NamePrefix}-JumpBox
           - ResourceType: volume
             Tags:
               - Key: Name
-                Value: JumpBox
-              - Key: NamePrefix
-                Value: !Ref NamePrefix
+                Value: !Sub ${NamePrefix}-JumpBox
         UserData:
           Fn::Base64: >
-            #!/bin/bash -x
-            yum update -y
+            #!/bin/bash
+            set -x
+            yum update --assume-yes
       TagSpecifications:
         - ResourceType: launch-template
           Tags:
             - Key: Name
-              Value: JumpBox
-            - Key: NamePrefix
-              Value: !Ref NamePrefix
+              Value: !Sub ${NamePrefix}-JumpBox
 
   JumpBoxInstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -93,62 +75,37 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${NamePrefix}-JumpBox
-        - Key: NamePrefix
-          Value: !Ref NamePrefix
 
   JumpBoxSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: !Sub ${NamePrefix}-JumpBoxSecurityGroup
-      GroupDescription: JumpBox Security Group
-      SecurityGroupEgress: []
-      SecurityGroupIngress: []
-      Tags:
-        - Key: Name
-          Value: !Sub ${NamePrefix}-JumpBoxSG
-        - Key: NamePrefix
-          Value: !Ref NamePrefix
+      GroupDescription: Jump box security group
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0  # Outbound to anywhere.
       VpcId:
         Fn::ImportValue: !Sub ${NamePrefix}-vpc-id
+      Tags:
+        - Key: Name
+          Value: !Sub ${NamePrefix}-JumpBoxSecurityGroup
 
   JumpBoxAutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       AutoScalingGroupName: !Sub ${NamePrefix}-JumpBoxAutoScalingGroup
-      AvailabilityZones:
-        - Fn::FindInMap: [ Ref: Environment, Ref: AWS::Region, "AZ1" ]
-        - Fn::FindInMap: [ Ref: Environment, Ref: AWS::Region, "AZ2" ]
-        - Fn::FindInMap: [ Ref: Environment, Ref: AWS::Region, "AZ3" ]
-      DesiredCapacity:
-        Fn::FindInMap: [ Ref: Environment, Ref: AWS::Region, "JumpBoxAsgDesiredCapacity" ]
+      DesiredCapacity: 1
       HealthCheckType: EC2
       LaunchTemplate:
         LaunchTemplateId: !Ref JumpBoxLaunchTemplate
         Version: !GetAtt JumpBoxLaunchTemplate.LatestVersionNumber
-      MaxSize:
-        Fn::FindInMap: [ Ref: Environment, Ref: AWS::Region, "JumpBoxAsgMaximumSize" ]
-      MinSize:
-        Fn::FindInMap: [ Ref: Environment, Ref: AWS::Region, "JumpBoxAsgMinimumSize" ]
+      MaxSize: 1
+      MinSize: 1
+      VPCZoneIdentifier:
+        - !Select [0, !Split [",", Fn::ImportValue: !Sub "${NamePrefix}-private-subnet-list"]]
+        - !Select [1, !Split [",", Fn::ImportValue: !Sub "${NamePrefix}-private-subnet-list"]]
+        - !Select [2, !Split [",", Fn::ImportValue: !Sub "${NamePrefix}-private-subnet-list"]]
       Tags:
         - Key: Name
           PropagateAtLaunch: true
           Value: JumpBox
-        - Key: NamePrefix
-          PropagateAtLaunch: true
-          Value: !Ref NamePrefix
-      VPCZoneIdentifier:
-        - Fn::Select:
-          - 0
-          - !Split
-            - ','
-            - Fn::ImportValue: !Sub ${NamePrefix}-private-subnet-list
-        - Fn::Select:
-          - 1
-          - !Split
-            - ','
-            - Fn::ImportValue: !Sub ${NamePrefix}-private-subnet-list
-        - Fn::Select:
-          - 2
-          - !Split
-            - ','
-            - Fn::ImportValue: !Sub ${NamePrefix}-private-subnet-list
