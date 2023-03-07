@@ -50,10 +50,55 @@ Resources:
               - Key: Name
                 Value: !Sub ${NamePrefix}-jump-box
         UserData:
-          Fn::Base64: >
+          Fn::Base64: !Sub |
             #!/bin/bash
+            set -euo pipefail
+
             set -x
-            yum update --assume-yes
+            yum update --assumeyes
+            yum install mysql jq --assumeyes
+            set +x
+
+            cat << 'EOF' > /usr/bin/test-rds-proxy
+            #!/bin/bash
+            set -euo pipefail
+
+            export AWS_DEFAULT_REGION="${AWS::Region}"
+
+            NAME_PREFIX="${NamePrefix}"
+
+            proxy="$(aws rds describe-db-proxies | jq --raw-output ".DBProxies[] | select(.DBProxyName == \"rds-proxy-test-rds-proxy\") | .Endpoint")"
+            direct="$(aws rds describe-db-cluster-endpoints | jq --raw-output ".DBClusterEndpoints[] | select(.DBClusterIdentifier == \"${!NAME_PREFIX}-database-cluster\") | select(.EndpointType == \"READER\") | .Endpoint")"
+
+            secret_data="$(aws secretsmanager get-secret-value --secret-id "${!NAME_PREFIX}/rds/admin" | jq --raw-output .SecretString)"
+            username="$(echo "${!secret_data}" | jq --raw-output .username)"
+            password="$(echo "${!secret_data}" | jq --raw-output .password)"
+            dbname="$(echo "${!secret_data}" | jq --raw-output .dbname)"
+
+            function query(){
+              endpoint="${!1}"
+              query="${!2}"
+
+              echo
+              set -x
+              mysql --host="${!endpoint}" --user="${!username}" --password="${!password}" "${!dbname}" --execute="${!query}" --verbose --verbose
+              { set +x; } 2>/dev/null  # Runs 'set +x' without printing it out.
+            }
+
+            # Runs a quick and simple test of database connectivity.
+            function main(){
+              set +e
+              query "${!direct}" "SHOW TABLES"
+              query "${!proxy}" "SHOW TABLES"
+              query "${!direct}" "SHOW TABLES"
+              set -e
+            }
+
+            main
+
+            EOF
+
+            chmod +x /usr/bin/test-rds-proxy
       TagSpecifications:
         - ResourceType: launch-template
           Tags:
@@ -78,6 +123,19 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+
+              - Effect: Allow
+                Action: rds:Describe*
+                Resource: '*'
+
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${NamePrefix}/rds/admin-*
 
   JumpBoxSecurityGroup:
     Type: AWS::EC2::SecurityGroup
