@@ -1,5 +1,18 @@
 ---
 
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-subnet.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-flowlog.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-routetable.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-internetgateway.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc-gateway-attachment.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-eip.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-natgateway.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-subnetroutetableassociation.html
+
 AWSTemplateFormatVersion: 2010-09-09
 
 Mappings:
@@ -195,26 +208,26 @@ Resources:
   RestrictedRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
+      VpcId: !Ref Vpc
       Tags:
         - Key: Name
           Value: !Sub ${NamePrefix}-restricted-route-table
-      VpcId: !Ref Vpc
 
   PrivateRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
+      VpcId: !Ref Vpc
       Tags:
         - Key: Name
           Value: !Sub ${NamePrefix}-private-route-table
-      VpcId: !Ref Vpc
 
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
+      VpcId: !Ref Vpc
       Tags:
         - Key: Name
           Value: !Sub ${NamePrefix}-public-route-table
-      VpcId: !Ref Vpc
 
   ###################################
   # Internet Gateway / Routes / NAT #

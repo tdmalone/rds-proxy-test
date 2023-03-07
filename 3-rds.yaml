@@ -1,7 +1,16 @@
 ---
 
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbinstance.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-secret.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbsubnetgroup.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-key.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-alias.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-secret.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-secrettargetattachment.html
+
 AWSTemplateFormatVersion: 2010-09-09
-Transform: AWS::LanguageExtensions
 
 Parameters:
 
@@ -21,20 +30,18 @@ Parameters:
 
 Resources:
 
-  ############################
-  # DB v2 Serverless Cluster #
-  ############################
-
-  # @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html
+  ############
+  # Database #
+  ############
 
   DatabaseCluster:
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Type: AWS::RDS::DBCluster
     Properties:
-      BackupRetentionPeriod: 35
       DBClusterIdentifier: !Sub ${NamePrefix}-database-cluster
-      DBClusterParameterGroupName: !Ref DatabaseClusterParameterGroup
+      BackupRetentionPeriod: 1
+      DatabaseName: !Sub ${NamePrefix}
       DBSubnetGroupName: !Ref DatabaseSubnetGroup
       EnableCloudwatchLogsExports:
         - audit
@@ -53,9 +60,6 @@ Resources:
       StorageEncrypted: true
       VpcSecurityGroupIds:
         - !Ref DatabaseSecurityGroup
-      Tags:
-        - Key: Name
-          Value: !Sub ${NamePrefix}-database-cluster
 
   # @see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.html
 
@@ -67,13 +71,9 @@ Resources:
       DBClusterIdentifier: !Ref DatabaseCluster
       CACertificateIdentifier: rds-ca-2019
       DBInstanceClass: db.serverless
-      DBParameterGroupName: !Ref DatabaseInstanceParameterGroup
       DBSubnetGroupName: !Ref DatabaseSubnetGroup
       Engine: aurora-mysql
       EngineVersion: 8.0.mysql_aurora.3.02.0
-      Tags:
-        - Key: Name
-          Value: !Sub ${NamePrefix}-database-instance
 
   ###################
   # Security Groups #
@@ -82,7 +82,7 @@ Resources:
   DatabaseSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: !Sub ${NamePrefix}-DatabaseSecurityGroup
+      GroupName: !Sub ${NamePrefix}-database-security-group
       GroupDescription: Database security group
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -102,7 +102,7 @@ Resources:
         Fn::ImportValue: !Sub ${NamePrefix}-vpc-id
       Tags:
         - Key: Name
-          Value: !Sub ${NamePrefix}-DatabaseSecurityGroup
+          Value: !Sub ${NamePrefix}-database-security-group
 
   #################
   # Subnet Groups #
@@ -146,8 +146,6 @@ Resources:
   ###############
   # Credentials #
   ###############
-
-  # @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-secret.html
 
   # Admin
 
@@ -194,26 +192,6 @@ Resources:
       SecretId: !Ref DatabaseProxyCredentials
       TargetId: !Ref DatabaseCluster
       TargetType: AWS::RDS::DBCluster
-
-  ####################
-  # Parameter Groups #
-  ####################
-
-  DatabaseClusterParameterGroup:
-    Type: AWS::RDS::DBClusterParameterGroup
-    Properties:
-      Description: !Sub Database cluster parameter group for ${NamePrefix}
-      Family: aurora-mysql8.0
-      Parameters:
-        time_zone: UTC
-
-  DatabaseInstanceParameterGroup:
-    Type: AWS::RDS::DBParameterGroup
-    Properties:
-      Description: !Sub Database instance parameter group for ${NamePrefix}
-      Family: aurora-mysql8.0
-      Parameters:
-        explicit_defaults_for_timestamp: 1
 
 ###########
 # Outputs #

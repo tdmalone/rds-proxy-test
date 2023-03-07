@@ -1,5 +1,11 @@
 ---
 
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-launchtemplate.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-instanceprofile.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-as-group.html
+
 AWSTemplateFormatVersion: 2010-09-09
 
 Mappings:
@@ -19,7 +25,7 @@ Resources:
   JumpBoxLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: !Sub ${NamePrefix}-JumpBoxLaunchTemplate
+      LaunchTemplateName: !Sub ${NamePrefix}-jump-box-launch-template
       LaunchTemplateData:
         BlockDeviceMappings:
           - DeviceName: /dev/xvdf
@@ -38,11 +44,11 @@ Resources:
           - ResourceType: instance
             Tags:
               - Key: Name
-                Value: !Sub ${NamePrefix}-JumpBox
+                Value: !Sub ${NamePrefix}-jump-box
           - ResourceType: volume
             Tags:
               - Key: Name
-                Value: !Sub ${NamePrefix}-JumpBox
+                Value: !Sub ${NamePrefix}-jump-box
         UserData:
           Fn::Base64: >
             #!/bin/bash
@@ -52,7 +58,7 @@ Resources:
         - ResourceType: launch-template
           Tags:
             - Key: Name
-              Value: !Sub ${NamePrefix}-JumpBox
+              Value: !Sub ${NamePrefix}-jump-box
 
   JumpBoxInstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -72,14 +78,11 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
-      Tags:
-        - Key: Name
-          Value: !Sub ${NamePrefix}-JumpBox
 
   JumpBoxSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: !Sub ${NamePrefix}-JumpBoxSecurityGroup
+      GroupName: !Sub ${NamePrefix}-jump-box-security-group
       GroupDescription: Jump box security group
       SecurityGroupEgress:
         - IpProtocol: -1
@@ -88,12 +91,12 @@ Resources:
         Fn::ImportValue: !Sub ${NamePrefix}-vpc-id
       Tags:
         - Key: Name
-          Value: !Sub ${NamePrefix}-JumpBoxSecurityGroup
+          Value: !Sub ${NamePrefix}-jump-box-security-group
 
   JumpBoxAutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      AutoScalingGroupName: !Sub ${NamePrefix}-JumpBoxAutoScalingGroup
+      AutoScalingGroupName: !Sub ${NamePrefix}-jump-box-auto-scaling-group
       DesiredCapacity: 1
       HealthCheckType: EC2
       LaunchTemplate:
@@ -108,4 +111,4 @@ Resources:
       Tags:
         - Key: Name
           PropagateAtLaunch: true
-          Value: JumpBox
+          Value: !Sub ${NamePrefix}-jump-box

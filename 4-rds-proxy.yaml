@@ -1,5 +1,10 @@
 ---
 
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbproxy.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbproxytargetgroup.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
+# @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html
+
 AWSTemplateFormatVersion: 2010-09-09
 
 Parameters:
@@ -12,44 +17,41 @@ Resources:
 
   # @see https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/rds-proxy.howitworks.html#rds-proxy-connecting
   # @see https://aws.amazon.com/blogs/compute/using-amazon-rds-proxy-with-aws-lambda/
-  # @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbproxy.html
   DatabaseProxy:
     Type: AWS::RDS::DBProxy
     Properties:
       DBProxyName: !Sub ${NamePrefix}-rds-proxy
-      EngineFamily: MYSQL
-      RoleArn: !GetAtt DatabaseProxyRole.Arn
       Auth:
-        - Description: API user
-          AuthScheme: SECRETS
+        - AuthScheme: SECRETS
+          IAMAuth: REQUIRED
           SecretArn:
             Fn::ImportValue: !Sub ${NamePrefix}-database-proxy-credentials-arn
-          IAMAuth: REQUIRED
+      DebugLogging: true
+      EngineFamily: MYSQL  # Includes Aurora MySQL.
+      RequireTLS: true
+      RoleArn: !GetAtt DatabaseProxyRole.Arn  # For secrets access.
+      VpcSecurityGroupIds:
+        - !Ref DatabaseProxySecurityGroup
       VpcSubnetIds: !Split
         - ","
         - Fn::ImportValue: !Sub ${NamePrefix}-restricted-subnet-list
-      VpcSecurityGroupIds:
-        - !Ref DatabaseProxySecurityGroup
-      RequireTLS: true
-      DebugLogging: true
 
-  # @see https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbproxytargetgroup.html
   ProxyTargetGroup:
     Type: AWS::RDS::DBProxyTargetGroup
     Properties:
       DBProxyName: !Ref DatabaseProxy
-      TargetGroupName: default  # Must be set to default
+      TargetGroupName: default  # Must be set to default.
       DBClusterIdentifiers:
         - Fn::ImportValue: !Sub ${NamePrefix}-database-cluster-name
       ConnectionPoolConfigurationInfo:
+        ConnectionBorrowTimeout: 120
         MaxConnectionsPercent: 90
         MaxIdleConnectionsPercent: 80
-        ConnectionBorrowTimeout: 120
 
   DatabaseProxySecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: !Sub ${NamePrefix}-DatabaseProxySecurityGroup
+      GroupName: !Sub ${NamePrefix}-database-proxy-security-group
       GroupDescription: RDS Proxy security group
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -64,7 +66,7 @@ Resources:
         Fn::ImportValue: !Sub ${NamePrefix}-vpc-id
       Tags:
         - Key: Name
-          Value: !Sub ${NamePrefix}-DatabaseProxySecurityGroup
+          Value: !Sub ${NamePrefix}-database-proxy-security-group
 
   # @see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.IAMPolicy.html
   # @see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-proxy-setup.html#rds-proxy-connecting-iam
