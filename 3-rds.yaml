@@ -41,7 +41,7 @@ Resources:
     Properties:
       DBClusterIdentifier: !Sub ${NamePrefix}-database-cluster
       BackupRetentionPeriod: 1
-      DatabaseName: !Sub ${NamePrefix}
+      DatabaseName: test_database
       DBSubnetGroupName: !Ref DatabaseSubnetGroup
       EnableCloudwatchLogsExports:
         - audit
