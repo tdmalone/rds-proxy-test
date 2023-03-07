@@ -228,27 +228,25 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
+        Version: 2012-10-17
         Statement:
-          - Action: ["sts:AssumeRole"]
-            Effect: Allow
+          - Effect: Allow
             Principal:
-              Service: [vpc-flow-logs.amazonaws.com]
-        Version: "2012-10-17"
-      Path: /
+              Service: vpc-flow-logs.amazonaws.com
+            Action: sts:AssumeRole
       Policies:
-        - PolicyDocument:
+        - PolicyName: root
+          PolicyDocument:
+            Version: "2012-10-17"
             Statement:
-              - Sid: Logs
+              - Effect: Allow
                 Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                   - logs:DescribeLogGroups
                   - logs:DescribeLogStreams
-                Effect: Allow
                 Resource: !Sub arn:${AWS::Partition}:logs:*:*:*
-            Version: "2012-10-17"
-          PolicyName: root
 
   ################
   # Route Tables #

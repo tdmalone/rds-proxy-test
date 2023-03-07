@@ -61,13 +61,13 @@ main(){
 
   if [[ "${debug_mode}" == "true" ]]; then
     delete_stack "4-rds-proxy"
-    delete_stack "2-rds-bastion"
+    delete_stack "2-rds-jumpbox"
 
     wait_while "4-rds-proxy" "DELETE_IN_PROGRESS"
     delete_stack "3-rds"
 
     wait_while "3-rds" "DELETE_IN_PROGRESS"
-    wait_while "2-rds-bastion" "DELETE_IN_PROGRESS"
+    wait_while "2-rds-jumpbox" "DELETE_IN_PROGRESS"
     delete_stack "1-vpc"
 
     wait_while "1-vpc" "DELETE_IN_PROGRESS"
@@ -76,13 +76,13 @@ main(){
   deploy_stack "1-vpc"
 
   wait_while "1-vpc" "CREATE_IN_PROGRESS"
-  deploy_stack "2-rds-bastion"
+  deploy_stack "2-rds-jumpbox"
   deploy_stack "3-rds"
 
   wait_while "3-rds" "CREATE_IN_PROGRESS"
   deploy_stack "4-rds-proxy"
 
-  wait_while "2-rds-bastion" "CREATE_IN_PROGRESS"
+  wait_while "2-rds-jumpbox" "CREATE_IN_PROGRESS"
   wait_while "4-rds-proxy" "CREATE_IN_PROGRESS"
   echo
   echo "Done."

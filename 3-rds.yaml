@@ -46,7 +46,7 @@ Resources:
       SecurityGroupEgress: []
       Tags:
         - Key: Name
-          Value: Db-SG
+          Value: !Sub ${NamePrefix}-DbSG
 
   ###################
   # DB Subnet Group #
